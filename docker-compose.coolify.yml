@@ -1,25 +1,31 @@
 services:
-  hermes:
+  gateway:
     image: nousresearch/hermes-agent:latest
     restart: unless-stopped
-    command: gateway run
     volumes:
       - hermes_data:/opt/data
+    environment:
+      - HERMES_UID=${HERMES_UID}
+      - HERMES_GID=${HERMES_GID}
+      - API_SERVER_HOST=${API_SERVER_HOST}
+      - API_SERVER_KEY=${API_SERVER_KEY}
+    command: ["gateway", "run"]
     expose:
       - "8642"
 
   dashboard:
     image: nousresearch/hermes-agent:latest
     restart: unless-stopped
-    command: dashboard --host 0.0.0.0
+    depends_on:
+      - gateway
     volumes:
       - hermes_data:/opt/data
     environment:
-      - GATEWAY_HEALTH_URL=http://hermes:8642
+      - HERMES_UID=${HERMES_UID}
+      - HERMES_GID=${HERMES_GID}
+    command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
     expose:
       - "9119"
-    depends_on:
-      - hermes
 
 volumes:
   hermes_data:
