@@ -1,0 +1,25 @@
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    restart: unless-stopped
+    command: gateway run
+    volumes:
+      - hermes_data:/opt/data
+    expose:
+      - "8642"
+
+  dashboard:
+    image: nousresearch/hermes-agent:latest
+    restart: unless-stopped
+    command: dashboard --host 0.0.0.0
+    volumes:
+      - hermes_data:/opt/data
+    environment:
+      - GATEWAY_HEALTH_URL=http://hermes:8642
+    expose:
+      - "9119"
+    depends_on:
+      - hermes
+
+volumes:
+  hermes_data:
