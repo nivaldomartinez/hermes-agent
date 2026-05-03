@@ -25,7 +25,7 @@ services:
       - HERMES_UID=${HERMES_UID}
       - HERMES_GID=${HERMES_GID}
       - GATEWAY_HEALTH_URL=${GATEWAY_HEALTH_URL}
-    command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
+    command: ["dashboard", "--host", "127.0.0.1", "--no-open"]
     expose:
       - "9119"
 
