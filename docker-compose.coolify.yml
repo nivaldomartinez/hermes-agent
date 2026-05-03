@@ -7,8 +7,9 @@ services:
     environment:
       - HERMES_UID=${HERMES_UID}
       - HERMES_GID=${HERMES_GID}
-      - API_SERVER_HOST=${API_SERVER_HOST}
-      - API_SERVER_KEY=${API_SERVER_KEY}
+      # public api (optional):
+      # - API_SERVER_HOST=${API_SERVER_HOST}
+      # - API_SERVER_KEY=${API_SERVER_KEY}
     command: ["gateway", "run"]
     expose:
       - "8642"
@@ -23,6 +24,7 @@ services:
     environment:
       - HERMES_UID=${HERMES_UID}
       - HERMES_GID=${HERMES_GID}
+      - GATEWAY_HEALTH_URL=${GATEWAY_HEALTH_URL}
     command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
     expose:
       - "9119"
