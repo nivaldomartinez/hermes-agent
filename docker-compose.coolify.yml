@@ -1,5 +1,5 @@
 services:
-  gateway:
+  hermes-gateway:
     image: nousresearch/hermes-agent:latest
     restart: unless-stopped
     volumes:
@@ -14,7 +14,7 @@ services:
     expose:
       - "8642"
 
-  dashboard:
+  hermes-dashboard:
     image: nousresearch/hermes-agent:latest
     restart: unless-stopped
     depends_on:
@@ -25,7 +25,7 @@ services:
       - HERMES_UID=${HERMES_UID}
       - HERMES_GID=${HERMES_GID}
       - GATEWAY_HEALTH_URL=${GATEWAY_HEALTH_URL}
-    command: ["dashboard", "--host", "127.0.0.1", "--no-open"]
+    command: ["dashboard", "--host", "0.0.0.0", "--no-open", "--insecure"]
     expose:
       - "9119"
 
