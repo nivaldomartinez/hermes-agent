@@ -91,6 +91,15 @@ def _termux_browser_setup_steps(node_installed: bool) -> list[str]:
     return steps
 
 
+def _termux_install_all_fallback_notes() -> list[str]:
+    return [
+        "Termux install profile: use .[termux-all] for broad compatibility (installer default on Termux).",
+        "Matrix E2EE extra is excluded on Termux (python-olm currently fails to build).",
+        "Local faster-whisper extra is excluded on Termux (ctranslate2/av build path unavailable).",
+        "STT fallback: use Groq Whisper (set GROQ_API_KEY) or OpenAI Whisper (set VOICE_TOOLS_OPENAI_KEY).",
+    ]
+
+
 def _has_provider_env_config(content: str) -> bool:
     """Return True when ~/.hermes/.env contains provider auth/base URL settings."""
     return any(key in content for key in _PROVIDER_ENV_HINTS)
@@ -107,15 +116,35 @@ def _honcho_is_configured_for_doctor() -> bool:
         return False
 
 
+def _is_kanban_worker_env_gate(item: dict) -> bool:
+    """Return True when Kanban is unavailable only because this is not a worker process."""
+    if item.get("name") != "kanban":
+        return False
+    if os.environ.get("HERMES_KANBAN_TASK"):
+        return False
+
+    tools = item.get("tools") or []
+    return bool(tools) and all(str(tool).startswith("kanban_") for tool in tools)
+
+
+def _doctor_tool_availability_detail(toolset: str) -> str:
+    """Optional explanatory suffix for toolsets whose doctor status needs context."""
+    if toolset == "kanban" and not os.environ.get("HERMES_KANBAN_TASK"):
+        return "(runtime-gated; loaded only for dispatcher-spawned workers)"
+    return ""
+
+
 def _apply_doctor_tool_availability_overrides(available: list[str], unavailable: list[dict]) -> tuple[list[str], list[dict]]:
     """Adjust runtime-gated tool availability for doctor diagnostics."""
-    if not _honcho_is_configured_for_doctor():
-        return available, unavailable
-
     updated_available = list(available)
     updated_unavailable = []
     for item in unavailable:
-        if item.get("name") == "honcho":
+        name = item.get("name")
+        if _is_kanban_worker_env_gate(item):
+            if "kanban" not in updated_available:
+                updated_available.append("kanban")
+            continue
+        if name == "honcho" and _honcho_is_configured_for_doctor():
             if "honcho" not in updated_available:
                 updated_available.append("honcho")
             continue
@@ -177,7 +206,7 @@ def _build_apikey_providers_list() -> list:
 
     Tuple format: (name, env_vars, default_url, base_env, supports_models_endpoint)
     Base list augmented with any ProviderProfile with auth_type="api_key" not
-    already present — adding providers/*.py is sufficient to get into doctor.
+    already present — adding plugins/model-providers/<name>/ is sufficient to get into doctor.
     """
     _static = [
         ("Z.AI / GLM",      ("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"), "https://api.z.ai/api/paas/v4/models", "GLM_BASE_URL", True),
@@ -1064,6 +1093,11 @@ def run_doctor(args):
             except Exception:
                 pass
 
+    if _is_termux():
+        check_info("Termux compatibility fallbacks:")
+        for note in _termux_install_all_fallback_notes():
+            check_info(note)
+
     # =========================================================================
     # Check: API connectivity
     # =========================================================================
@@ -1205,6 +1239,16 @@ def run_doctor(args):
                     headers=_headers,
                     timeout=10,
                 )
+                if (
+                    _pname == "Alibaba/DashScope"
+                    and not _base
+                    and _resp.status_code == 401
+                ):
+                    _resp = httpx.get(
+                        "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+                        headers=_headers,
+                        timeout=10,
+                    )
                 if _resp.status_code == 200:
                     print(f"\r  {color('✓', Colors.GREEN)} {_label}                          ")
                 elif _resp.status_code == 401:
@@ -1278,7 +1322,7 @@ def run_doctor(args):
         
         for tid in available:
             info = TOOLSET_REQUIREMENTS.get(tid, {})
-            check_ok(info.get("name", tid))
+            check_ok(info.get("name", tid), _doctor_tool_availability_detail(tid))
         
         for item in unavailable:
             env_vars = item.get("missing_vars") or item.get("env_vars") or []
